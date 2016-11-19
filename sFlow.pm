@@ -33,6 +33,7 @@ require Exporter;
 # 64bit integers
 use Math::BigInt;
 
+use ip2as;
 
 our $VERSION = '0.12';
 our @EXPORT_OK = qw(decode);
@@ -1502,17 +1503,62 @@ sub _decodeHeaderData {
     }
 
     if ($sFlowSample->{HeaderType} eq ETH_TYPE_IP) {
+      (undef, $sFlowSample->{HeaderDatalen}, undef, my $src, my $dst) = unpack('nnB64NN', $ipdata);
+      $src = join '.', unpack 'C4', pack 'N', $src;
+      $dst = join '.', unpack 'C4', pack 'N', $dst;
+      my $asn = ip2as::getas4ip($src);
+      if(defined($asn)){
+        $sFlowSample->{GatewayAsSource} = $asn;
+      }
 
-      (undef, $sFlowSample->{HeaderDatalen}) = unpack('nn', $ipdata);
+      $asn = ip2as::getas4ip($dst);
+      if(defined($asn)){
+        my @sFlowAsPaths = ();
+        $sFlowSample->{GatewayDestAsPaths} = \@sFlowAsPaths;
+        my %sFlowAsPath = ();
+        push @sFlowAsPaths, \%sFlowAsPath;
+        my @sFlowAsNumber = ($asn);
+        $sFlowAsPath{AsPath} = \@sFlowAsNumber;
+      }
+
       # add ethernet header length
       $sFlowSample->{HeaderDatalen} += 14;
     }
 
     elsif ($sFlowSample->{HeaderType} eq ETH_TYPE_IPv6) {
+      (undef, $sFlowSample->{HeaderDatalen}, undef, my $src, my $dst) = unpack('NnnB128B128', $ipdata);
+      my @array_src = ( $src =~ m/......../g );
+      my @array_dst = ( $dst =~ m/......../g );
+      $src = '';
+      $dst = '';
+      for(my $x = 0; $x < scalar @array_src; $x = $x + 2){
+        $src .= sprintf("%02x%02x:", oct("0b$array_src[$x]"), oct("0b$array_src[$x + 1]"));
+      }
+      chop($src);
 
-      (undef, $sFlowSample->{HeaderDatalen}) = unpack('Nn', $ipdata);
+      for(my $x = 0; $x < scalar @array_dst; $x = $x + 2){
+        $dst .= sprintf("%02x%02x:", oct("0b$array_dst[$x]"), oct("0b$array_dst[$x + 1]"));
+      }
+      chop($dst);
+
+      my $asn = ip2as::getas4ip($src);
+      if(defined($asn)){
+        $sFlowSample->{GatewayAsSource} = $asn;
+      }
+
+      $asn = ip2as::getas4ip($dst);
+      if(defined($asn)){
+        my @sFlowAsPaths = ();
+        $sFlowSample->{GatewayDestAsPaths} = \@sFlowAsPaths;
+        my %sFlowAsPath = ();
+        push @sFlowAsPaths, \%sFlowAsPath;
+        my @sFlowAsNumber = ($asn);
+        $sFlowAsPath{AsPath} = \@sFlowAsNumber;
+      }
+
       # add v6 header (not included in v6)
       $sFlowSample->{HeaderDatalen} += 40;
+      $sFlowSample->{IPv6Packetlength} = $sFlowSample->{HeaderDatalen};
       # add ethernet header length
       $sFlowSample->{HeaderDatalen} += 14;
     }
