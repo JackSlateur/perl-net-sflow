@@ -1,12 +1,9 @@
 This patched version of sFlow.pm handle missing Gateway data from flows.
 It recreates these data, for globally routable addresses, using the raw sample.
-It also uses Cymru services to build ASN, see http://www.team-cymru.org/IP-ASN-mapping.html for details.
-
-The patch handles cache & async DNS queries, to avoid both DNS storm and blocking IO.
+It also uses the RIPE to map IP to ASN.
 
 Known bugs (also called "features"):
-- the first request is never filled, as we do not wait for DNS result. Request on the same ressource are not filled, too, until the DNS request is completed and successful.
-- the cache is never cleaned up.
+- the cache is never cleaned up. You may want to manually run tools/fetch_ip_asn.py && reload your process to read the newer tools/ip2asn.json.
 
 
 Q: Why on earth would I need that, btw ?
